@@ -2,56 +2,73 @@ const Papa = require("PapaParse");
 const fs = require("fs");
 const axios = require("axios");
 
-let file = fs.createReadStream('./data/sample.csv');
+let file = fs.createReadStream('./data/sg.csv');
 
 let params = {
   token: "BTC",
-  date: "2021-12-1"
+  date: "2021/12/1"
 }
 
-let x = 0;
+// const epochToDateConverter = (date) => {
+//   axios.get(`https://showcase.api.linx.twenty57.net/UnixTime/tounix`, {
+//     params: {
+//       date: date,
+//     }
+//   })
+//   .then( result => {
+//     return result;
+//   })
+//   .catch( err => {
+//     return err;
+//   })
+// }
 
-let data = [];
+const timestampToDateTimeConverter = (timestamp) => {
+  axios.get(`https://showcase.api.linx.twenty57.net/UnixTime/fromunix`, {
+    params: {
+      timestamp: timestamp,
+    }
+  })
+  .then( result => {
+    console.log(result)
+    return result
+  })
+  .catch( err => {
+    console.log(err);
+  })
+}
+
+
+let balances = {};
+let tokens = [];
 
 Papa.parse(file, {
   header: true,
   step: result => {
-    storeData(result)
+    if ((params.token && params.date && params.token === result.data.token && params.date === timestampToDateTimeConverter(parseint(result.data.timestamp))) || (params.token && !params.date && params.token === result.data.token) || (params.date && !params.token && params.date === timestampToDateTimeConverter(parseint(result.data.timestamp))) || (!params.token && !params.date))
+    {
+      if (!tokens.includes(result.data.token))
+      {
+        tokens.push(result.data.token);
+        balances[result.data.token] = 0;
+      }
+
+      if (result.data.transaction_type === "DEPOSIT")
+      {
+        balances[result.data.token] += parseFloat(result.data.amount);
+      }
+      else
+      {
+        balances[result.data.token] -= parseFloat(result.data.amount);
+      }
+    }
   },
   complete: () => {
-    getBalances(data)
+    getUSDBalances()
   }
 })
 
-const storeData = (result) => {
-  if ( (params.token && params.date && params.token === result.data.token && params.date === result.data.timestamp))
-  {
-    data[x++] = result.data;
-  }
-}
-
-const getBalances = (data) => {
-  let balances = {};
-  let tokens = [];
-  let rates = {};
-
-  data.forEach(record => {
-    if (!tokens.includes(record.token))
-    {
-      tokens.push(record.token);
-      balances[record.token] = 0;
-    }
-
-    if (record.transaction_type === "DEPOSIT")
-    {
-      balances[record.token] += parseFloat(record.amount);
-    }
-    else
-    {
-      balances[record.token] -= parseFloat(record.amount);
-    }
-  });
-
+const getUSDBalances = () => {
   tokens.forEach(token => {
     axios.get(`https://min-api.cryptocompare.com/data/price`, {
       params: {
@@ -65,5 +82,4 @@ const getBalances = (data) => {
       })
     })
   });
-
 }
