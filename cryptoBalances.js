@@ -27,28 +27,10 @@ if (params.date)
     .then( res => {
       Papa.parse(file, {
         step: result => {
-          console.log(parseInt(res.data))
-          console.log(parseInt(result.data[0]))
-          if ((params.token && params.date && params.token === result.data.token && (parseInt(res.data) > parseInt(result.data[0]))) || (params.token && !params.date && params.token === result.data.token) || (params.date && !params.token && (parseInt(res.data) > parseInt(result.data[0]))) || (!params.token && !params.date))
-          {
-            if (!tokens.includes(result.data.token))
-            {
-              tokens.push(result.data.token);
-              balances[result.data.token] = 0;
-            }
-      
-            if (result.data.transaction_type === "DEPOSIT")
-            {
-              balances[result.data.token] += parseFloat(result.data.amount);
-            }
-            else
-            {
-              balances[result.data.token] -= parseFloat(result.data.amount);
-            }
-          }
+          getTokenBalances(result, res)
         },
         complete: () => {
-          getUSDBalances()
+          getUSDBalances();
         }
       })
     })
@@ -58,6 +40,37 @@ if (params.date)
   };
 
   unixToDateTimeConverter();
+}
+else
+{
+  Papa.parse(file, {
+    step: result => {
+      getTokenBalances(result, res)
+    },
+    complete: () => {
+      getUSDBalances();
+    }
+  })
+}
+
+const getTokenBalances = (result, res) => {
+  if ((params.token && params.date && params.token === result.data.token && (parseInt(res.data) > parseInt(result.data[0]))) || (params.token && !params.date && params.token === result.data.token) || (params.date && !params.token && (parseInt(res.data) > parseInt(result.data[0]))) || (!params.token && !params.date))
+  {
+    if (!tokens.includes(result.data.token))
+    {
+      tokens.push(result.data.token);
+      balances[result.data.token] = 0;
+    }
+
+    if (result.data.transaction_type === "DEPOSIT")
+    {
+      balances[result.data.token] += parseFloat(result.data.amount);
+    }
+    else
+    {
+      balances[result.data.token] -= parseFloat(result.data.amount);
+    }
+  }
 }
 
 const getUSDBalances = () => {
