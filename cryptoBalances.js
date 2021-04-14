@@ -9,68 +9,60 @@ let params = {  // Here are the parameters where to get to spacify the token or 
   // date: "12-31-2017"
 };
 
-let formattedDate;
 let balances = {};
 let tokens = [];
 
-if (params.date)
-{
-  formattedDate = new Date(params.date);
-  formattedDate.setDate(formattedDate.getDate() + 2);
-
-  const unixToDateTimeConverter = () => {
-    axios.get(`https://showcase.api.linx.twenty57.net/UnixTime/tounix`, {
-      params: {
-        date: formattedDate,
-      }
-    })
-    .then( res => {
-      Papa.parse(file, {
-        step: result => {
-          getTokenBalances(result, res)
-        },
-        complete: () => {
-          getUSDBalances();
-        }
-      })
-    })
-    .catch( err => {
-      return err;
-    })
-  };
-
-  unixToDateTimeConverter();
-}
-else
-{
+const parseFile = (date) => {
   Papa.parse(file, {
+    header: true,
     step: result => {
-      getTokenBalances(result, res)
+      if ((params.token && params.date && params.token === result.data.token && date > parseInt(result.data.timestamp)) || (params.token && !params.date && params.token === result.data.token) || (params.date && !params.token && date > parseInt(result.data.timestamp)) || (!params.token && !params.date))
+      {
+        if (!tokens.includes(result.data.token))
+        {
+          tokens.push(result.data.token);
+          balances[result.data.token] = 0;
+        }
+  
+        if (result.data.transaction_type === "DEPOSIT")
+        {
+          balances[result.data.token] += parseFloat(result.data.amount);
+        }
+        else
+        {
+          balances[result.data.token] -= parseFloat(result.data.amount);
+        }
+      }
     },
     complete: () => {
-      getUSDBalances();
+      getUSDBalances()
     }
   })
 }
 
-const getTokenBalances = (result, res) => {
-  if ((params.token && params.date && params.token === result.data.token && (parseInt(res.data) > parseInt(result.data[0]))) || (params.token && !params.date && params.token === result.data.token) || (params.date && !params.token && (parseInt(res.data) > parseInt(result.data[0]))) || (!params.token && !params.date))
-  {
-    if (!tokens.includes(result.data.token))
-    {
-      tokens.push(result.data.token);
-      balances[result.data.token] = 0;
-    }
-
-    if (result.data.transaction_type === "DEPOSIT")
-    {
-      balances[result.data.token] += parseFloat(result.data.amount);
-    }
-    else
-    {
-      balances[result.data.token] -= parseFloat(result.data.amount);
-    }
+if (params.date)
+{
+  const date = new Date(params.date);
+  
+  const DatetimeToUnixConverter = () => {
+    axios.get(`https://showcase.api.linx.twenty57.net/UnixTime/tounix`, {
+      params: {
+        date: date,
+      }
+    })
+    .then( result => {
+      parseFile(parseInt(result.data)+115200);
+    })
+    .catch( err => {
+      return err;
+    })
   }
+
+  DatetimeToUnixConverter(date);
+}
+else
+{
+  parseFile();
 }
 
 const getUSDBalances = () => {
@@ -82,7 +74,7 @@ const getUSDBalances = () => {
       }
     })
     .then( result => {
-      fs.appendFile("./results/noParameters.txt", JSON.stringify({[token]: "USD"+result.data.USD * balances[token]}), 'utf8', function(err, result) {
+      fs.appendFile("./results/results.txt", JSON.stringify({[token]: "USD"+result.data.USD * balances[token]}), 'utf8', function(err, result) {
         if (err) console.log('error', err);
       })
     })
